@@ -2,10 +2,11 @@
 
 All notable changes to `laravel-turnstile` will be documented in this file.
 
-## v2.0.0 - 2026-11-03
+## v3.0.0 - 2026-11-03
 
 ### Fork & rebrand
 
+- First release under the `bkhim/laravel-turnstile` package name.
 - Forked and now maintained by [bkhim](https://github.com/bkhim) as
   [`bkhim/laravel-turnstile`](https://github.com/bkhim/laravel-turnstile).
   We intend to maintain the package indefinitely and welcome all contributions.
