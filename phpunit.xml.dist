@@ -1,8 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <phpunit
     xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/11.0/phpunit.xsd"
-    backupGlobals="false"
     bootstrap="vendor/autoload.php"
     colors="true"
     processIsolation="false"
@@ -12,16 +10,19 @@
     failOnEmptyTestSuite="true"
     cacheDirectory=".phpunit.cache"
     backupStaticProperties="false"
+    backupGlobals="false"
 >
     <testsuites>
-        <testsuite name="Coderflex Test Suite">
+        <testsuite name="Bkhim Turnstile Test Suite">
             <directory>tests</directory>
         </testsuite>
     </testsuites>
-    <coverage>
+    <source>
         <include>
             <directory suffix=".php">./src</directory>
         </include>
+    </source>
+    <coverage>
         <report>
             <html outputDirectory="build/coverage"/>
             <text outputFile="build/coverage.txt"/>

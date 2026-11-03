@@ -1,6 +1,7 @@
 The MIT License (MIT)
 
 Copyright (c) Coderflex <contact@coderflex.com>
+Copyright (c) 2026 bkhim
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal

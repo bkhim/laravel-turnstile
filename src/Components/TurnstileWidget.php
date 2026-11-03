@@ -1,13 +1,18 @@
 <?php
 
-namespace Coderflex\LaravelTurnstile\Components;
+namespace Bkhim\LaravelTurnstile\Components;
 
 use Illuminate\View\Component;
 
+/**
+ * The <x-turnstile-widget /> Blade component.
+ *
+ * Part of the long-term community-maintained Bkhim fork of laravel-turnstile.
+ */
 class TurnstileWidget extends Component
 {
-    public function render()
+    public function render(): string
     {
-        return view('turnstile::components.turnstile-widget');
+        return 'turnstile::components.turnstile-widget';
     }
 }

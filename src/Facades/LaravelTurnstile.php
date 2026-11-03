@@ -1,16 +1,16 @@
 <?php
 
-namespace Coderflex\LaravelTurnstile\Facades;
+namespace Bkhim\LaravelTurnstile\Facades;
 
 use Illuminate\Support\Facades\Facade;
 
 /**
- * @see \Coderflex\LaravelTurnstile\LaravelTurnstile
+ * @see \Bkhim\LaravelTurnstile\LaravelTurnstile
  */
 class LaravelTurnstile extends Facade
 {
-    protected static function getFacadeAccessor()
+    protected static function getFacadeAccessor(): string
     {
-        return \Coderflex\LaravelTurnstile\LaravelTurnstile::class;
+        return \Bkhim\LaravelTurnstile\LaravelTurnstile::class;
     }
 }

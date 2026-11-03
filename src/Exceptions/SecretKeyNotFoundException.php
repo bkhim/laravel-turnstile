@@ -1,6 +1,6 @@
 <?php
 
-namespace Coderflex\LaravelTurnstile\Exceptions;
+namespace Bkhim\LaravelTurnstile\Exceptions;
 
 use Exception;
 

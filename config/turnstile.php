@@ -1,22 +1,34 @@
 <?php
 
+/*
+|--------------------------------------------------------------------------
+| Laravel Turnstile (Bkhim fork)
+|--------------------------------------------------------------------------
+|
+| A long-term community-maintained fork of coderflexx/laravel-turnstile.
+| Contributions, suggestions, and improvements are always welcome at
+| https://github.com/bkhim/laravel-turnstile.
+|
+*/
+
 return [
     /*
     |--------------------------------------------------------------------------
     | Turnstile Keys
     |--------------------------------------------------------------------------
     |
-    | This value is the site, and the secret key of your application, after creating an application
-    | with Cloudflare turnstile, copy the site key, and use it here, or in the .env
-    | file.
+    | This value is the site and the secret key of your application. After
+    | creating an application with Cloudflare Turnstile, copy the site key
+    | and use it here, or in the .env file.
+    |
     | Note that the secret key should not be publicly accessible.
     |
     | @see: https://developers.cloudflare.com/turnstile/get-started/#get-a-sitekey-and-secret-key
     |
     */
-    'turnstile_site_key' => env('TURNSTILE_SITE_KEY', null),
+    'turnstile_site_key' => env('TURNSTILE_SITE_KEY'),
 
-    'turnstile_secret_key' => env('TURNSTILE_SECRET_KEY', null),
+    'turnstile_secret_key' => env('TURNSTILE_SECRET_KEY'),
 
     /*
     |--------------------------------------------------------------------------

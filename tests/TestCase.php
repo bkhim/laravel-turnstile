@@ -1,26 +1,24 @@
 <?php
 
-namespace Coderflex\LaravelTurnstile\Tests;
+namespace Bkhim\LaravelTurnstile\Tests;
 
-use Coderflex\LaravelTurnstile\LaravelTurnstileServiceProvider;
+use Bkhim\LaravelTurnstile\LaravelTurnstileServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 
-class TestCase extends Orchestra
+abstract class TestCase extends Orchestra
 {
-    protected function setUp(): void
-    {
-        parent::setUp();
-    }
-
-    protected function getPackageProviders($app)
+    protected function getPackageProviders($app): array
     {
         return [
             LaravelTurnstileServiceProvider::class,
         ];
     }
 
-    public function getEnvironmentSetUp($app)
+    protected function defineEnvironment($app): void
     {
-        //
+        // Cloudflare's official dummy keys for testing.
+        // @see https://developers.cloudflare.com/turnstile/reference/testing/
+        $app['config']->set('turnstile.turnstile_site_key', '1x00000000000000000000AA');
+        $app['config']->set('turnstile.turnstile_secret_key', '1x0000000000000000000000000000000AA');
     }
 }
