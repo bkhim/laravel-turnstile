@@ -3,6 +3,7 @@
 namespace Bkhim\LaravelTurnstile;
 
 use Bkhim\LaravelTurnstile\Components\TurnstileWidget;
+use Bkhim\LaravelTurnstile\Console\Commands\CheckTurnstileCommand;
 use Spatie\LaravelPackageTools\Package;
 use Spatie\LaravelPackageTools\PackageServiceProvider;
 
@@ -26,6 +27,7 @@ class LaravelTurnstileServiceProvider extends PackageServiceProvider
             ->name('laravel-turnstile')
             ->hasConfigFile()
             ->hasViews('turnstile')
-            ->hasViewComponent('', TurnstileWidget::class);
+            ->hasViewComponent('', TurnstileWidget::class)
+            ->hasCommand(CheckTurnstileCommand::class);
     }
 }

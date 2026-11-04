@@ -2,6 +2,48 @@
 
 All notable changes to `laravel-turnstile` will be documented in this file.
 
+## v3.1.0 - 2026-11-04
+
+This release adds stronger checks that you can turn on when you are ready. **Nothing here breaks an existing v3.0 installation.** Your forms, configuration, and code keep working as they are.
+
+### New ways to protect your forms
+
+- **Check the website hostname.** You can now tell the package which websites are allowed to send tokens. It will then compare the hostname that Cloudflare reports with your list. This matters when one widget is used on more than one website, including `localhost` during development.
+- **Check the form action.** If you use `data-action="signup"` (or the `action` option) on the widget, you can ask the package to confirm that the token was created for that same action. This stops a token from one form being reused on another.
+- **Send the visitor's IP address.** The package now includes the visitor's IP address in the request to Cloudflare by default, so Cloudflare has more context when it checks the token. You can turn this off with `TURNSTILE_SEND_REMOTE_IP=false`.
+- **A new `validateResponse()` method.** It does the same Cloudflare check as `validate()`, but it can also check the hostname and action. It returns a friendly result object that you can read like an array (`$result['success']`) or with methods such as `$result->successful()`, `$result->reason()`, and `$result->hostname()`. `validate()` still works exactly as before.
+- **A new `turnstile:check` command.** Run `php artisan turnstile:check` to see your settings, catch common mistakes, and confirm that Cloudflare accepts your secret key. It never prints the secret.
+- **A `LaravelTurnstile::fake()` helper.** This makes it easy to fake Turnstile in your own tests, so your test suite never calls Cloudflare.
+- **More widget options.** You can now set `cdata`, expired/timeout/unsupported callbacks, before/after interactive callbacks, retry behavior, refresh behavior, a tab index, an element id, and explicit rendering. The Turnstile script now loads with `async defer`.
+
+### Changes you might notice
+
+- The default timeout for the request to Cloudflare is now 10 seconds instead of 30. You can change it with `TURNSTILE_TIMEOUT`.
+- Tokens that are empty, not text, or longer than 2048 characters are rejected before the package contacts Cloudflare. This is what Cloudflare would do anyway; it just saves a round trip.
+- Failed checks made with the validation rule can be written to your application log without the token or secret by setting `TURNSTILE_LOG_FAILURES=true`.
+- The `TurnstileCheck` rule can now be given an action, hostnames, a remote IP, and a preference for what to do when Cloudflare is unreachable.
+
+### Still safe to upgrade
+
+- `validate()` keeps its signature and still returns the same array.
+- `TurnstileCheck` only gained optional arguments, so existing usages keep working.
+- Existing configuration keys are unchanged. New keys are added with safe defaults.
+- No supported PHP or Laravel versions were removed.
+
+### Preparing for v4
+
+A future major release will make the safer behavior the default. Nothing changes yet, but here is what to expect:
+
+- Allowed hostnames will be required, and requests will be rejected when none are configured.
+- Requests will be rejected when Cloudflare cannot be reached, unless you explicitly turn that off.
+- `validateResponse()` will become the recommended way to check a token.
+
+You can prepare now by setting `TURNSTILE_HOSTNAMES`, and by turning on `TURNSTILE_REQUIRE_HOSTNAMES` and `TURNSTILE_FAIL_CLOSED` when you are ready. See [UPGRADING.md](UPGRADING.md) for details.
+
+### Thanks
+
+Thank you to everyone using and reporting issues against the package. Your feedback is what keeps it improving.
+
 ## v3.0.0 - 2026-11-03
 
 ### Fork & rebrand
