@@ -4,6 +4,7 @@ namespace Bkhim\LaravelTurnstile;
 
 use ArrayAccess;
 use JsonSerializable;
+use LogicException;
 
 /**
  * A friendly result object for a Turnstile check.
@@ -44,9 +45,9 @@ final class TurnstileResponse implements ArrayAccess, JsonSerializable
     /**
      * A short machine-readable reason when the check failed.
      *
-     * Examples: `invalid_token`, `rejected`, `action_mismatch`,
-     * `hostname_mismatch`, `hostname_not_configured`,
-     * `validation_service_error`.
+     * Examples: `invalid_token`, `invalid_secret`, `expired_or_duplicate`,
+     * `upstream_error`, `rejected`, `action_mismatch`, `hostname_mismatch`,
+     * `hostname_not_configured`, `validation_service_error`.
      */
     public function reason(): ?string
     {
@@ -158,12 +159,12 @@ final class TurnstileResponse implements ArrayAccess, JsonSerializable
 
     public function offsetSet(mixed $offset, mixed $value): void
     {
-        // Results are read-only.
+        throw new LogicException('Turnstile results are read-only and cannot be changed.');
     }
 
     public function offsetUnset(mixed $offset): void
     {
-        // Results are read-only.
+        throw new LogicException('Turnstile results are read-only and cannot be changed.');
     }
 
     /**

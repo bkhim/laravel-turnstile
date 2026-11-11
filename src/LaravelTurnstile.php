@@ -2,6 +2,7 @@
 
 namespace Bkhim\LaravelTurnstile;
 
+use Bkhim\LaravelTurnstile\Exceptions\InvalidActionException;
 use Bkhim\LaravelTurnstile\Exceptions\SecretKeyNotFoundException;
 use Bkhim\LaravelTurnstile\Exceptions\UnknownErrorOccurredException;
 use Illuminate\Http\Client\ConnectionException;
@@ -33,6 +34,10 @@ class LaravelTurnstile
      *
      * When no response is given, the value of the configured response field
      * on the current request is used (by default `cf-turnstile-response`).
+     *
+     * Note: this method always throws when Cloudflare cannot be reached. It
+     * does not use the `fail_closed` setting. Use `validateResponse()` or the
+     * validation rule if you want the request to fail instead.
      *
      * @return array<string, mixed>
      *
@@ -78,6 +83,7 @@ class LaravelTurnstile
      *
      * @throws SecretKeyNotFoundException
      * @throws UnknownErrorOccurredException
+     * @throws InvalidActionException
      */
     public function validateResponse(?string $cfResponse = null, array $options = []): TurnstileResponse
     {
@@ -110,12 +116,14 @@ class LaravelTurnstile
         }
 
         if (! ($payload['success'] ?? false)) {
-            return TurnstileResponse::fromPayload($payload, false, 'rejected');
+            return TurnstileResponse::fromPayload($payload, false, $this->reasonForPayload($payload));
         }
 
         $expectedAction = $options['action'] ?? config('turnstile.action');
 
         if (is_string($expectedAction) && $expectedAction !== '') {
+            $this->assertValidAction($expectedAction);
+
             $receivedAction = $payload['action'] ?? null;
 
             if ($receivedAction !== $expectedAction) {
@@ -163,6 +171,69 @@ class LaravelTurnstile
         $configured = config('turnstile.verify_url');
 
         return is_string($configured) && $configured !== '' ? $configured : $this->url;
+    }
+
+    /**
+     * Turn a Cloudflare payload into one of our short, readable reasons.
+     *
+     * @param  array<string, mixed>  $payload
+     */
+    private function reasonForPayload(array $payload): string
+    {
+        $codes = $payload['error-codes'] ?? [];
+
+        if (is_string($codes)) {
+            $codes = [$codes];
+        }
+
+        if (! is_array($codes)) {
+            return 'rejected';
+        }
+
+        $codes = array_values(array_filter($codes, 'is_string'));
+
+        foreach ($codes as $code) {
+            if (in_array($code, ['invalid-input-secret', 'missing-input-secret'], true)) {
+                return 'invalid_secret';
+            }
+        }
+
+        foreach ($codes as $code) {
+            if (in_array($code, ['timeout-or-duplicate'], true)) {
+                return 'expired_or_duplicate';
+            }
+        }
+
+        foreach ($codes as $code) {
+            if (in_array($code, ['invalid-input-response', 'missing-input-response'], true)) {
+                return 'invalid_token';
+            }
+        }
+
+        foreach ($codes as $code) {
+            if (in_array($code, ['internal-error'], true)) {
+                return 'upstream_error';
+            }
+        }
+
+        return 'rejected';
+    }
+
+    /**
+     * Make sure an action matches Cloudflare's rules before we compare it.
+     *
+     * Cloudflare allows 1 to 32 characters, using letters, numbers,
+     * underscores, and hyphens.
+     *
+     * @throws InvalidActionException
+     */
+    private function assertValidAction(string $action): void
+    {
+        if (preg_match('/^[A-Za-z0-9_-]{1,32}$/', $action) !== 1) {
+            throw new InvalidActionException(
+                'A Turnstile action must be 1 to 32 characters and may only contain letters, numbers, underscores, and hyphens. Received: '.$action
+            );
+        }
     }
 
     /**
@@ -251,20 +322,37 @@ class LaravelTurnstile
             ? (int) $options['connect_timeout']
             : (int) config('turnstile.connect_timeout', 5);
 
-        try {
-            $response = Http::asForm()
-                ->timeout(max(1, $timeout))
-                ->connectTimeout(max(1, $connectTimeout))
-                ->post($this->getUrl(), $payload);
-        } catch (ConnectionException $exception) {
-            throw new UnknownErrorOccurredException(
-                'An unknown error occurred, please refresh the page and try again.',
-                0,
-                $exception
-            );
+        // When an idempotency key is provided, Cloudflare can safely receive
+        // the same request twice, so we may retry once if we are rate limited.
+        $attempts = isset($payload['idempotency_key']) ? 2 : 1;
+        $response = null;
+
+        for ($attempt = 1; $attempt <= $attempts; $attempt++) {
+            try {
+                $response = Http::asForm()
+                    ->timeout(max(1, $timeout))
+                    ->connectTimeout(max(1, $connectTimeout))
+                    ->post($this->getUrl(), $payload);
+            } catch (ConnectionException $exception) {
+                if ($attempt < $attempts) {
+                    continue;
+                }
+
+                throw new UnknownErrorOccurredException(
+                    'An unknown error occurred, please refresh the page and try again.',
+                    0,
+                    $exception
+                );
+            }
+
+            if ($response->status() === 429 && $attempt < $attempts) {
+                continue;
+            }
+
+            break;
         }
 
-        if ($response->failed()) {
+        if ($response === null || $response->failed()) {
             throw new UnknownErrorOccurredException(
                 'An unknown error occurred, please refresh the page and try again.'
             );
@@ -311,8 +399,21 @@ class LaravelTurnstile
         return array_values(array_unique($normalized));
     }
 
+    /**
+     * Normalize a hostname so comparisons are predictable.
+     *
+     * This lowercases the value, trims spaces, drops a trailing dot, and
+     * removes a port when one is present in the usual `host:port` form.
+     * IPv6 addresses are left alone.
+     */
     private function normalizeHostname(string $hostname): string
     {
-        return rtrim(strtolower(trim($hostname)), '.');
+        $hostname = rtrim(strtolower(trim($hostname)), '.');
+
+        if (substr_count($hostname, ':') === 1 && preg_match('/:\d+$/', $hostname) === 1) {
+            $hostname = substr($hostname, 0, (int) strrpos($hostname, ':'));
+        }
+
+        return $hostname;
     }
 }

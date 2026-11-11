@@ -44,9 +44,12 @@ return [
     |
     | TURNSTILE_HOSTNAMES=example.com,www.example.com
     |
-    | During local development you may need localhost and 127.0.0.1 in this
-    | list, especially when you use Cloudflare's test keys. Do not include
-    | localhost in a production environment.
+    | During local development with real keys you will usually want
+    | localhost and 127.0.0.1 in this list. Cloudflare's test keys are not
+    | tied to a domain and may report a different hostname, so either allow
+    | the hostname Cloudflare reports or leave this list empty while testing.
+    |
+    | Do not include localhost in a production environment.
     |
     */
     'hostnames' => array_values(array_filter(array_map(

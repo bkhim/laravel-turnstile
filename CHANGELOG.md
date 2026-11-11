@@ -2,6 +2,40 @@
 
 All notable changes to `laravel-turnstile` will be documented in this file.
 
+## v3.1.1 - 2026-11-11
+
+A maintenance release with clearer error reporting, a few safety improvements, and better documentation. **Nothing here breaks an existing installation.** No code changes are needed to upgrade.
+
+### Fixed
+
+- **Your secret key is now reported clearly.** When Cloudflare rejects the secret key, every visitor fails the check. The package now always writes this to your error log, even if `TURNSTILE_LOG_FAILURES` is off, so a broken deployment is visible instead of looking like an ordinary bot problem.
+- **Configuration errors are no longer hidden.** If the secret key is missing, the validation rule lets the error surface instead of showing the visitor a "you are a robot" message.
+- The package now declares `illuminate/console`, which it uses for the `turnstile:check` command. This prevents the command from breaking in setups that do not install the full Laravel framework.
+- Hostnames are compared more reliably. A configured hostname with a port, such as `example.com:8080`, now matches `example.com`.
+
+### Changed
+
+- **More helpful failure reasons.** Instead of saying only `rejected`, the result now tells you what kind of failure happened:
+  - `invalid_secret` — the secret key was rejected. This breaks every visitor.
+  - `invalid_token` — the token is missing or malformed.
+  - `expired_or_duplicate` — the token was already used or has expired.
+  - `upstream_error` — Cloudflare had a temporary problem.
+  - `rejected` — anything else. Check `errorCodes()` for the exact code.
+- **Invalid actions are caught early.** Actions must be 1 to 32 characters using letters, numbers, underscores, and hyphens. The package now throws a clear `InvalidActionException` instead of silently failing every request.
+- **Results are read-only.** Trying to change a result object now throws an exception instead of doing nothing.
+- **Rate limits are retried once** when you provide an `idempotency_key`.
+
+### Added
+
+- `InvalidActionException`.
+- Much more detailed documentation, including a step-by-step form walkthrough, a full configuration reference, and a troubleshooting table for every error code and reason.
+
+### Development
+
+- Added architecture tests and tests for the result object.
+- CI now runs the oldest supported dependencies, checks for known vulnerabilities, and publishes a coverage report.
+- Removed an unused PHPStan baseline and a leftover `.gitkeep`.
+
 ## v3.1.0 - 2026-11-04
 
 This release adds stronger checks that you can turn on when you are ready. **Nothing here breaks an existing v3.0 installation.** Your forms, configuration, and code keep working as they are.

@@ -1,5 +1,6 @@
 <?php
 
+use Bkhim\LaravelTurnstile\Exceptions\InvalidActionException;
 use Bkhim\LaravelTurnstile\Exceptions\SecretKeyNotFoundException;
 use Bkhim\LaravelTurnstile\Exceptions\UnknownErrorOccurredException;
 use Bkhim\LaravelTurnstile\Facades\LaravelTurnstile;
@@ -7,6 +8,7 @@ use Bkhim\LaravelTurnstile\Rules\TurnstileCheck;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Route;
 
 const TURNSTILE_VERIFY_URL = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
@@ -248,7 +250,7 @@ it('reports why a check failed', function () {
     $result = LaravelTurnstile::validateResponse('token');
 
     expect($result->successful())->toBeFalse()
-        ->and($result->reason())->toBe('rejected')
+        ->and($result->reason())->toBe('expired_or_duplicate')
         ->and($result->errorCodes())->toBe(['timeout-or-duplicate']);
 });
 
@@ -378,4 +380,107 @@ it('can fake cloudflare checks with the fake helper', function () {
     LaravelTurnstile::fake(['success' => true, 'hostname' => 'example.com']);
 
     expect(LaravelTurnstile::validateResponse('token', ['hostnames' => ['example.com']])->successful())->toBeTrue();
+});
+
+it('maps cloudflare error codes to readable reasons', function (array $payload, string $reason) {
+    fakeTurnstile($payload);
+
+    expect(LaravelTurnstile::validateResponse('token')->reason())->toBe($reason);
+})->with([
+    'invalid secret' => [['success' => false, 'error-codes' => ['invalid-input-secret']], 'invalid_secret'],
+    'missing secret' => [['success' => false, 'error-codes' => ['missing-input-secret']], 'invalid_secret'],
+    'invalid token' => [['success' => false, 'error-codes' => ['invalid-input-response']], 'invalid_token'],
+    'missing token' => [['success' => false, 'error-codes' => ['missing-input-response']], 'invalid_token'],
+    'replayed token' => [['success' => false, 'error-codes' => ['timeout-or-duplicate']], 'expired_or_duplicate'],
+    'upstream problem' => [['success' => false, 'error-codes' => ['internal-error']], 'upstream_error'],
+    'unknown problem' => [['success' => false, 'error-codes' => ['bad-request']], 'rejected'],
+]);
+
+it('compares hostnames without case or a trailing dot', function () {
+    fakeTurnstile(['hostname' => 'Example.COM.']);
+
+    expect(LaravelTurnstile::validateResponse('token', ['hostnames' => ['example.com']])->successful())->toBeTrue();
+});
+
+it('ignores a port on a configured hostname', function () {
+    fakeTurnstile(['hostname' => 'example.com']);
+
+    expect(LaravelTurnstile::validateResponse('token', ['hostnames' => ['example.com:8080']])->successful())->toBeTrue();
+});
+
+it('accepts a comma separated hostname string', function () {
+    fakeTurnstile(['hostname' => 'www.example.com']);
+
+    expect(LaravelTurnstile::validateResponse('token', ['hostnames' => 'example.com, www.example.com'])->successful())->toBeTrue();
+});
+
+it('does not check hostnames in the original validate method', function () {
+    Config::set('turnstile.hostnames', ['other.com']);
+    fakeTurnstile(['hostname' => 'example.com']);
+
+    expect(LaravelTurnstile::validate('token')['success'])->toBeTrue();
+});
+
+it('rejects an invalid action name', function () {
+    fakeTurnstile(['action' => 'signup']);
+
+    LaravelTurnstile::validateResponse('token', ['action' => 'sign up']);
+})->throws(InvalidActionException::class);
+
+it('accepts a valid action name', function () {
+    fakeTurnstile(['action' => 'signup_form-1']);
+
+    expect(LaravelTurnstile::validateResponse('token', ['action' => 'signup_form-1'])->successful())->toBeTrue();
+});
+
+it('retries a rate limited request once when an idempotency key is provided', function () {
+    Http::fake([
+        TURNSTILE_VERIFY_URL => Http::sequence()
+            ->push(['success' => false, 'error-codes' => ['internal-error']], 429)
+            ->push(['success' => true], 200),
+    ]);
+
+    $result = LaravelTurnstile::validateResponse('token', ['idempotency_key' => 'abc-123']);
+
+    expect($result->successful())->toBeTrue();
+    Http::assertSentCount(2);
+});
+
+it('does not retry a rate limited request without an idempotency key', function () {
+    Http::fake([TURNSTILE_VERIFY_URL => Http::response('Too Many Requests', 429)]);
+
+    LaravelTurnstile::validateResponse('token');
+})->throws(UnknownErrorOccurredException::class);
+
+it('always logs a rejected secret key, even when failure logging is off', function () {
+    Config::set('turnstile.log_failures', false);
+    fakeTurnstile(['success' => false, 'error-codes' => ['invalid-input-secret']]);
+
+    Log::spy();
+
+    (new TurnstileCheck)->validate('cf-turnstile-response', 'token', fn () => null);
+
+    Log::shouldHaveReceived('error')->once();
+});
+
+it('does not log ordinary failures when failure logging is off', function () {
+    Config::set('turnstile.log_failures', false);
+    fakeTurnstile(['success' => false, 'error-codes' => ['invalid-input-response']]);
+
+    Log::spy();
+
+    (new TurnstileCheck)->validate('cf-turnstile-response', 'token', fn () => null);
+
+    Log::shouldNotHaveReceived('warning');
+});
+
+it('logs ordinary failures when failure logging is on', function () {
+    Config::set('turnstile.log_failures', true);
+    fakeTurnstile(['success' => false, 'error-codes' => ['invalid-input-response']]);
+
+    Log::spy();
+
+    (new TurnstileCheck)->validate('cf-turnstile-response', 'token', fn () => null);
+
+    Log::shouldHaveReceived('warning')->once();
 });

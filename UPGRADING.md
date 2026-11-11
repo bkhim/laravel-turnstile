@@ -2,6 +2,28 @@
 
 This guide explains how to move between versions of `bkhim/laravel-turnstile`.
 
+## From v3.1.0 to v3.1.1
+
+**Nothing is required.** v3.1.1 is a maintenance release. Your forms, configuration, and code keep working exactly as they are.
+
+A few things are worth knowing:
+
+- **Failure reasons are more specific.** If your code checks `$result->reason() === 'rejected'`, note that some failures now report a more precise reason instead:
+  - `invalid_secret` — the secret key was rejected (this breaks every visitor).
+  - `invalid_token` — the token is missing or malformed.
+  - `expired_or_duplicate` — the token was already used or has expired.
+  - `upstream_error` — Cloudflare had a temporary problem.
+
+  `rejected` is still used for anything else. If you want to catch every failure, keep checking `$result->successful()` rather than the exact reason.
+
+- **Invalid actions throw an exception.** If you set an action that does not follow Cloudflare's rules (1 to 32 characters, letters, numbers, underscores, and hyphens), you will now get an `InvalidActionException` with a clear message. Previously it failed silently.
+
+- **Result objects are read-only.** If you ever tried to change a result with `$result['success'] = true`, that now throws instead of doing nothing.
+
+- **Secret key problems are always logged.** If Cloudflare rejects your secret key, the package writes an error to your log even when `TURNSTILE_LOG_FAILURES` is off. This makes a broken deployment obvious.
+
+No configuration changes are needed.
+
 ## From v3.0 to v3.1
 
 **Nothing is required.** v3.1 is a safe upgrade. Your forms, configuration, and code keep working exactly as they are.
@@ -16,7 +38,7 @@ Add the websites that are allowed to send tokens to your application:
 TURNSTILE_HOSTNAMES=example.com,www.example.com
 ```
 
-During local development, add `localhost` and `127.0.0.1` as well. Cloudflare's test keys always report the hostname `localhost`.
+During local development with real keys, add `localhost` and `127.0.0.1` as well. Cloudflare's test keys are not tied to a domain and may report a different hostname.
 
 Once this list is not empty, the package will reject tokens that came from a different website. If you leave the list empty, the package will not check the hostname, which is how v3.0 behaved.
 
@@ -87,12 +109,13 @@ Version 4 is not released yet. This section explains what we plan to change so y
 
 - **Allowed hostnames will be required.** If no hostnames are configured, tokens will be rejected. Today you can turn this on early with `TURNSTILE_REQUIRE_HOSTNAMES=true`.
 - **Requests will be rejected when Cloudflare is unreachable.** Today this is controlled by `TURNSTILE_FAIL_CLOSED`, which is off by default. In v4 it will be on by default.
-- **`validateResponse()` will be the recommended way to check a token.** `validate()` will keep working, but we may deprecate it in a later release.
+- **`validateResponse()` will be the recommended way to check a token.** `validate()` will keep working, but it may be deprecated in a later release.
+- **Array options may become a typed options object.** The current array options will keep working during a transition period.
 
 ### How to prepare
 
 1. Set `TURNSTILE_HOSTNAMES` in every environment.
-2. Turn on `TURNSTILE_REQUIRE_HOSTNAMES=true` and `TURNSTILE_FAIL_CLOSED=true` to try the v4 behavior early.
+2. Turn on `TURNSTILE_REQUIRE_HOSTNAMES=true` and `TURNSTILE_FAIL_CLOSED=true` to try the v4 behaviour early.
 3. Move new code to `validateResponse()`.
 4. Run `php artisan turnstile:check` in each environment.
 
